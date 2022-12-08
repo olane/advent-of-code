@@ -39,9 +39,9 @@ bool VisibleFrom(int[][] grid, int height, (int x, int y) position, (int x, int 
 int PartOne(int[][] grid, (int, int)[] directions)
 {
     var visibleCount = 0;
-    for (int y = 0; y < grid.Count(); y++)
+    foreach (var y in Enumerable.Range(0, grid.Count()))
     {
-        for (int x = 0; x < grid[0].Count(); x++)
+        foreach (var x in Enumerable.Range(0, grid[0].Count()))
         {
             foreach (var dir in directions)
             {
@@ -78,7 +78,8 @@ int VisibilityDistance(int[][] grid, int height, (int x, int y) position, (int x
     return 1 + VisibilityDistance(grid, height, (nextX, nextY), direction);
 }
 
-int ScenicScore(int[][] grid, (int x, int y) position, (int, int)[] directions) {
+int ScenicScore(int[][] grid, (int x, int y) position, (int, int)[] directions)
+{
     var scores = directions.Select(d => VisibilityDistance(grid, grid[position.x][position.y], position, d));
     return scores.Aggregate(1, (a, b) => a * b);
 }
@@ -86,9 +87,9 @@ int ScenicScore(int[][] grid, (int x, int y) position, (int, int)[] directions) 
 int PartTwo(int[][] grid, (int, int)[] directions)
 {
     var maxScore = 0;
-    for (int y = 0; y < grid.Count(); y++)
+    foreach (var y in Enumerable.Range(0, grid.Count()))
     {
-        for (int x = 0; x < grid[0].Count(); x++)
+        foreach (var x in Enumerable.Range(0, grid[0].Count()))
         {
             var score = ScenicScore(grid, (x, y), directions);
             if (score > maxScore) {
