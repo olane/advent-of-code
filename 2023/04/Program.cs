@@ -10,32 +10,16 @@ Card CardFromLine(string line) {
 
 var cards = lines.Select(CardFromLine);
 
-//part1
-
-int ScoreCard1(Card card) {
-    var score = 0;
-    foreach(var n in card.numbers) {
-        if(card.winners.Contains(n)) {
-            if(score > 0) {
-                score *= 2;
-            }
-            else {
-                score = 1;
-            }
-        }
-    }
-    return score;
-}
-
-var scores1 = cards.Select(ScoreCard1);
-Console.WriteLine(scores1.Sum());
-//part2
-
-int ScoreCard2(Card card) {
+int ScoreCard(Card card) {
     return card.numbers.Count(x => card.winners.Contains(x));
 }
 
-var scoreDict = cards.ToDictionary(c => c.id, c => new {Wins = ScoreCard2(c), Copies = 1});
+//part1
+var scores1 = cards.Select(ScoreCard).Where(x => x > 0).Select(x => Math.Pow(2, x-1));
+Console.WriteLine(scores1.Sum());
+
+//part2
+var scoreDict = cards.ToDictionary(c => c.id, c => new {Wins = ScoreCard(c), Copies = 1});
 
 foreach(var (id, card) in scoreDict) {
     for (int i = 1; i <= card.Wins; i++)
