@@ -2,7 +2,7 @@
 
 using System.Collections.Immutable;
 
-var lines = File.ReadLines("testinput.txt").ToArray();
+var lines = File.ReadLines("input.txt").ToArray();
 
 var seeds = lines[0].Substring(7).Split(" ").Select(long.Parse).ToArray();
 
@@ -65,14 +65,14 @@ long FindLowestLocation(Dictionary<string, Map> maps, string currentProperty, IE
     }
 }
 
-var seedRanges = seeds.Chunk(2).Take(1).Select(x => {
+var seedRanges = seeds.Chunk(2).Select(x => {
         var start = x.First();
-        var end = start + x.Skip(1).First();
-        return new Range(x.First(), x.Skip(1).First());
+        var end = start + x.Skip(1).First() - 1;
+        return new Range(start, end);
     });
 
 var lowestLocation = FindLowestLocation(maps, "seed", seedRanges.ToList());
-
+Console.WriteLine(lowestLocation);
 
 //records
 record Map(string from, string to, ImmutableSortedSet<RangeMap> maps)
@@ -97,32 +97,32 @@ record Map(string from, string to, ImmutableSortedSet<RangeMap> maps)
     {
         foreach(var map in maps) {
             var mapRange = new Range(map.targetStart, map.targetStart + map.length - 1);
-            var offset = map.targetStart - map.sourceStart;
+            var offset = map.sourceStart - map.targetStart;
 
             if(mapRange.start <= range.start && range.end <= mapRange.end) {
                 // we can map in one go, range is fully contained in the map range
                 return [range.Offset(offset)];
             }
 
-            else if(mapRange.start <= range.start && range.end > mapRange.end) {
+            else if(range.start < mapRange.start && mapRange.end < range.end) {
+                // we overlap this range but go over both ends
+                var splitRanges = range.Split(mapRange.start, mapRange.end + 1);
+
+                return MapRange(splitRanges[0]).Concat(new [] {splitRanges[1].Offset(offset)}).Concat(MapRange(splitRanges[2]));
+            }
+
+            else if(mapRange.start <= range.start && mapRange.end >= range.start && range.end > mapRange.end) {
                 // our range starts in this map but goes over the end
                 var splitRanges = range.Split(mapRange.end + 1);
                 
                 return new [] {splitRanges[0].Offset(offset)}.Concat(MapRange(splitRanges[1]));
             }
 
-            else if(mapRange.start > range.start && range.end <= mapRange.end) {
+            else if(mapRange.start > range.start && range.end >= mapRange.start && range.end <= mapRange.end) {
                 // our range starts before this map but goes into it
                 var splitRanges = range.Split(mapRange.start);
 
                 return MapRange(splitRanges[0]).Concat(new [] {splitRanges[1].Offset(offset)});
-            }
-
-            else if(range.start <= mapRange.start && mapRange.end <= range.end) {
-                // we overlap this range but go over both ends
-                var splitRanges = range.Split(mapRange.start, mapRange.end);
-
-                return MapRange(splitRanges[0]).Concat(new [] {splitRanges[1].Offset(offset)}).Concat(MapRange(splitRanges[2]));
             }
         }
 
