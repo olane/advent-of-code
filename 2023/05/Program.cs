@@ -2,7 +2,7 @@
 
 using System.Collections.Immutable;
 
-var lines = File.ReadLines("input.txt").ToArray();
+var lines = File.ReadLines("testinput.txt").ToArray();
 
 var seeds = lines[0].Substring(7).Split(" ").Select(long.Parse).ToArray();
 
@@ -54,16 +54,24 @@ Console.WriteLine(seedLocations.Min());
 
 
 //part2
-IEnumerable<long> rangeEnumerator(long start, long extent) {
-    for(long i = start; i < start + extent; i ++) {
-        yield return i;
+long FindLowestLocation(Dictionary<string, Map> maps, string currentProperty, IEnumerable<Range> ranges) {
+    if (currentProperty == "location") {
+        return ranges.Select(x => x.start).Min();
+    }
+    else {
+        var map = maps[currentProperty];
+        var newRanges = map.MapRanges(ranges);
+        return FindLowestLocation(maps, map.to, newRanges);
     }
 }
 
-var seedRanges = seeds.Chunk(2).Take(1);
-var seeds2 = seedRanges.SelectMany(x => rangeEnumerator(x.First(), x.Skip(1).First()));
-var seed2Locations = seeds2.Select(x => FindLocation(maps, "seed", x));
-Console.WriteLine(seed2Locations.Min());
+var seedRanges = seeds.Chunk(2).Take(1).Select(x => {
+        var start = x.First();
+        var end = start + x.Skip(1).First();
+        return new Range(x.First(), x.Skip(1).First());
+    });
+
+var lowestLocation = FindLowestLocation(maps, "seed", seedRanges.ToList());
 
 
 //records
@@ -78,6 +86,47 @@ record Map(string from, string to, ImmutableSortedSet<RangeMap> maps)
             return matchingRange.sourceStart + offset;
         }
         return id;
+    }
+
+    
+    internal IEnumerable<Range> MapRanges(IEnumerable<Range> ranges) {
+        return ranges.SelectMany(MapRange);
+    }
+
+    internal IEnumerable<Range> MapRange(Range range)
+    {
+        foreach(var map in maps) {
+            var mapRange = new Range(map.targetStart, map.targetStart + map.length - 1);
+            var offset = map.targetStart - map.sourceStart;
+
+            if(mapRange.start <= range.start && range.end <= mapRange.end) {
+                // we can map in one go, range is fully contained in the map range
+                return [range.Offset(offset)];
+            }
+
+            else if(mapRange.start <= range.start && range.end > mapRange.end) {
+                // our range starts in this map but goes over the end
+                var splitRanges = range.Split(mapRange.end + 1);
+                
+                return new [] {splitRanges[0].Offset(offset)}.Concat(MapRange(splitRanges[1]));
+            }
+
+            else if(mapRange.start > range.start && range.end <= mapRange.end) {
+                // our range starts before this map but goes into it
+                var splitRanges = range.Split(mapRange.start);
+
+                return MapRange(splitRanges[0]).Concat(new [] {splitRanges[1].Offset(offset)});
+            }
+
+            else if(range.start <= mapRange.start && mapRange.end <= range.end) {
+                // we overlap this range but go over both ends
+                var splitRanges = range.Split(mapRange.start, mapRange.end);
+
+                return MapRange(splitRanges[0]).Concat(new [] {splitRanges[1].Offset(offset)}).Concat(MapRange(splitRanges[2]));
+            }
+        }
+
+        return [range];
     }
 
     private RangeMap? GetRange(long id)
@@ -105,4 +154,16 @@ internal class RangeMapComp : IComparer<RangeMap>
 
 record RangeMap(long sourceStart, long targetStart, long length);
 
-record Range(long start, long end);
+record Range(long start, long end) {
+    public Range[] Split(long startOfNewSecondRange) {
+        return [new Range(start, startOfNewSecondRange - 1), new Range(startOfNewSecondRange, end)];
+    }
+
+    public Range[] Split(long startOfNewSecondRange, long startOfNewThirdRange) {
+        return [new Range(start, startOfNewSecondRange - 1), new Range(startOfNewSecondRange, startOfNewThirdRange - 1), new Range(startOfNewThirdRange, end)];
+    }
+    
+    public Range Offset(long offset) {
+        return new Range(start + offset, end + offset);
+    }
+};
