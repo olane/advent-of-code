@@ -1,6 +1,8 @@
 ﻿
 var lines = File.ReadLines("input.txt");
 
+var cache = new Dictionary<(int length, int bits), IEnumerable<string>>();
+
 var arrangements1 = lines.Select(Part1);
 Console.WriteLine(arrangements1.Sum());
 
@@ -22,15 +24,16 @@ int Part1(string line) {
 
     var unknownDamageCount = groups.Sum() - field.Count(c => c == '#');
     var initialPerm = Enumerable.Repeat('#', unknownDamageCount).Concat(Enumerable.Repeat('.', unknownCount - unknownDamageCount));
-    var allPerms = GenerateUniquePermutations(initialPerm.ToArray()).Select(v => new string(v));
+    // var allPerms = GenerateUniquePermutations(initialPerm.ToArray());
+
+    var allPerms = BinStrings(unknownCount, unknownDamageCount).ToArray();
 
     Console.WriteLine(split[1]);
     Console.WriteLine(split[0]);
 
-    foreach (var perm in allPerms)
+    foreach (var thisPermutation in allPerms)
     {
         var k = 0;
-        var thisPermutation = perm.ToArray();
 
         var groupIndex = 0;
         var inThisGroupSoFar = 0;
@@ -38,7 +41,7 @@ int Part1(string line) {
 
         for (int i = 0; i < field.Length; i++)
         {
-            var thisChar = field[i] != '?' ? field[i] : thisPermutation[k++];
+            var thisChar = field[i] != '?' ? field[i] : thisPermutation[k++] == '1' ? '#' : '.';
 
             if(thisChar == '.' && inThisGroupSoFar > 0) {
                 if(groups[groupIndex] == inThisGroupSoFar) {
@@ -71,6 +74,33 @@ int Part1(string line) {
     return count;
 }
 
+
+IEnumerable<string> BinStrings(int length, int bits) {
+    if(!cache.ContainsKey((length, bits))) {
+        cache[(length, bits)] = GenBinStrings(length, bits).ToArray();
+    }
+
+    return cache[(length, bits)];
+}
+
+IEnumerable<string> GenBinStrings(int length, int bits) {
+  if (length == 1) {
+    yield return bits.ToString();
+  } else {
+    int first = length / 2;
+    int last = length - first;
+    int low = Math.Max(0, bits - last);
+    int high = Math.Min(bits, first);
+    for (int i = low; i <= high; i++) {
+      foreach (string f in BinStrings(first, i)) {
+        foreach (string l in BinStrings(last, bits - i)) {
+          yield return f + l;
+        }
+      }
+    }
+  }
+}
+
 static IEnumerable<char[]> GenerateUniquePermutations(char[] array)
 {
     // Sort the array to group identical permutations together
@@ -100,10 +130,7 @@ static IEnumerable<char[]> GenerateUniquePermutations(char[] array)
             j--;
         }
 
-        // Swap elements at i and j
         Swap(array, i, j);
-
-        // Reverse the elements after i
         Reverse(array, i + 1, array.Length - 1);
     }
 }
@@ -124,3 +151,4 @@ static void Reverse(char[] array, int start, int end)
         end--;
     }
 }
+
