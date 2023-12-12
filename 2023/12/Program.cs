@@ -1,6 +1,4 @@
 ﻿
-using System.Collections;
-
 var lines = File.ReadLines("input.txt");
 
 var cache = new Dictionary<(string, int[]), int>();
@@ -18,13 +16,6 @@ var arrangements2 = lines.Select(x => {
 });
 
 Console.WriteLine(arrangements2.Select(LineToMatchingArrangements).Sum());
-
-
-// ##.# 2,1
-// #.# 1,1
-// .# 1
-// # 1
-//  
 
 int LineToMatchingArrangements(string line) {
     var split = line.Split(" ");
