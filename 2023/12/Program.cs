@@ -1,7 +1,9 @@
 ﻿
+using System.Collections;
+
 var lines = File.ReadLines("input.txt");
 
-var cache = new Dictionary<(int length, int bits), IEnumerable<string>>();
+var cache = new Dictionary<(int length, int bits), IEnumerable<BitArray>>();
 
 var arrangements1 = lines.Select(Part1);
 Console.WriteLine(arrangements1.Sum());
@@ -41,7 +43,7 @@ int Part1(string line) {
 
         for (int i = 0; i < field.Length; i++)
         {
-            var thisChar = field[i] != '?' ? field[i] : thisPermutation[k++] == '1' ? '#' : '.';
+            var thisChar = field[i] != '?' ? field[i] : thisPermutation[k++] ? '#' : '.';
 
             if(thisChar == '.' && inThisGroupSoFar > 0) {
                 if(groups[groupIndex] == inThisGroupSoFar) {
@@ -75,7 +77,7 @@ int Part1(string line) {
 }
 
 
-IEnumerable<string> BinStrings(int length, int bits) {
+IEnumerable<BitArray> BinStrings(int length, int bits) {
     if(!cache.ContainsKey((length, bits))) {
         cache[(length, bits)] = GenBinStrings(length, bits).ToArray();
     }
@@ -83,72 +85,36 @@ IEnumerable<string> BinStrings(int length, int bits) {
     return cache[(length, bits)];
 }
 
-IEnumerable<string> GenBinStrings(int length, int bits) {
-  if (length == 1) {
-    yield return bits.ToString();
-  } else {
-    int first = length / 2;
-    int last = length - first;
-    int low = Math.Max(0, bits - last);
-    int high = Math.Min(bits, first);
-    for (int i = low; i <= high; i++) {
-      foreach (string f in BinStrings(first, i)) {
-        foreach (string l in BinStrings(last, bits - i)) {
-          yield return f + l;
-        }
-      }
+IEnumerable<BitArray> GenBinStrings(int length, int bitCount) {
+    if(bitCount == 0) {
+        yield return new BitArray(length, false);
     }
-  }
-}
-
-static IEnumerable<char[]> GenerateUniquePermutations(char[] array)
-{
-    // Sort the array to group identical permutations together
-    Array.Sort(array);
-
-    while (true)
+    else if (length == bitCount)
     {
-        char[] uniquePermutation = (char[])array.Clone();
-        yield return uniquePermutation;
-
-        // Find the next lexicographically greater permutation
-        int i = array.Length - 2;
-        while (i >= 0 && array[i] >= array[i + 1])
-        {
-            i--;
-        }
-
-        if (i < 0)
-        {
-            // All permutations generated
-            break;
-        }
-
-        int j = array.Length - 1;
-        while (array[j] <= array[i])
-        {
-            j--;
-        }
-
-        Swap(array, i, j);
-        Reverse(array, i + 1, array.Length - 1);
+        yield return new BitArray(length, true);
     }
-}
-
-static void Swap(char[] array, int i, int j)
-{
-    char temp = array[i];
-    array[i] = array[j];
-    array[j] = temp;
-}
-
-static void Reverse(char[] array, int start, int end)
-{
-    while (start < end)
+    else
     {
-        Swap(array, start, end);
-        start++;
-        end--;
+        int first = length / 2;
+        int last = length - first;
+        int low = Math.Max(0, bitCount - last);
+        int high = Math.Min(bitCount, first);
+        for (int i = low; i <= high; i++)
+        {
+            foreach (var f in BinStrings(first, i))
+            {
+                foreach (var l in BinStrings(last, bitCount - i))
+                {
+                    yield return Append(f, l);
+                }
+            }
+        }
     }
 }
 
+static BitArray Append(BitArray current, BitArray after) {
+    var bools = new bool[current.Count + after.Count];
+    current.CopyTo(bools, 0);
+    after.CopyTo(bools, current.Count);
+    return new BitArray(bools);
+}
