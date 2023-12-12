@@ -1,9 +1,8 @@
 ﻿
-var lines = File.ReadLines("testinput.txt");
+var lines = File.ReadLines("input.txt");
 
-// var arrangements1 = lines.Select(Part1);
-// Console.WriteLine(arrangements1.Sum());
-
+var arrangements1 = lines.Select(Part1);
+Console.WriteLine(arrangements1.Sum());
 
 var arrangements2 = lines.Select(x => {
     var split = x.Split(" ");
@@ -14,7 +13,7 @@ Console.WriteLine(arrangements2.Select(Part1).Sum());
 
 int Part1(string line) {
     var split = line.Split(" ");
-    var groups = split[1].Split(",").Select(int.Parse);
+    var groups = split[1].Split(",").Select(int.Parse).ToArray();
     var field = split[0];
 
     var unknownCount = field.Count(c => c == '?');
@@ -27,37 +26,49 @@ int Part1(string line) {
 
     Console.WriteLine(split[1]);
     Console.WriteLine(split[0]);
+
     foreach (var perm in allPerms)
     {
         var k = 0;
-        var permArr = perm.ToArray();
+        var thisPermutation = perm.ToArray();
 
-        var thisTestCase = new char[field.Length];
+        var groupIndex = 0;
+        var inThisGroupSoFar = 0;
+        var rejected = false;
+
         for (int i = 0; i < field.Length; i++)
         {
-            if (field[i] != '?') {
-                thisTestCase[i] = field[i];
+            var thisChar = field[i] != '?' ? field[i] : thisPermutation[k++];
+
+            if(thisChar == '.' && inThisGroupSoFar > 0) {
+                if(groups[groupIndex] == inThisGroupSoFar) {
+                    // all good, continue
+                    groupIndex++;
+                    inThisGroupSoFar = 0;
+                }
+                else {
+                    // violation
+                    rejected = true;
+                    break;
+                }
             }
-            else {
-                thisTestCase[i] = permArr[k];
-                k++;
+            else if (thisChar == '#') {
+                inThisGroupSoFar++;
+
+                if (inThisGroupSoFar > groups[groupIndex]) {
+                    // violation
+                    rejected = true;
+                    break;
+                }
             }
         }
 
-        var testString = new string(thisTestCase);
-        if (SatisfiesGroups(testString, groups)) {
+        if(!rejected) {
             count++;
-           // Console.WriteLine(testString);
         }
     }
-
     Console.WriteLine(count);
     return count;
-}
-
-bool SatisfiesGroups(string field, IEnumerable<int> groups) {
-    var fieldGroups = field.Split(".").Where(s => s.Length > 0).Select(s => s.Length);
-    return fieldGroups.SequenceEqual(groups);
 }
 
 static IEnumerable<char[]> GenerateUniquePermutations(char[] array)
