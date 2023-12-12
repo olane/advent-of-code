@@ -1,48 +1,44 @@
 ﻿
 var lines = File.ReadLines("input.txt");
 
-var cache = new Dictionary<(string, int[]), int>();
+var cache = new Dictionary<string, long>();
 
 var arrangements1 = lines.Select(LineToMatchingArrangements);
 Console.WriteLine(arrangements1.Sum());
-
-foreach(var (k, v) in cache) {
-    Console.WriteLine(k.Item1 + " " + string.Join(",", k.Item2) + " -> " + v);
-}
 
 var arrangements2 = lines.Select(x => {
     var split = x.Split(" ");
     return String.Join("?", Enumerable.Repeat(split[0], 5)) + " " + String.Join(",", Enumerable.Repeat(split[1], 5));
 });
 
-Console.WriteLine(arrangements2.Select(LineToMatchingArrangements).Sum());
+Console.WriteLine(arrangements2.Select(LineToMatchingArrangements).Select(x => (long) x).Sum());
 
-int LineToMatchingArrangements(string line) {
+long LineToMatchingArrangements(string line) {
     var split = line.Split(" ");
     var groups = split[1].Split(",").Select(int.Parse).ToArray();
     var field = split[0];
 
     var result =  MatchingArrangements(field, groups);
-    Console.WriteLine(result);
     return result;
 }
 
-
-int MatchingArrangements(string i, int[] g) {
+long MatchingArrangements(string i, int[] g) {
     var trim = i.Trim('.');
-    if(!cache.ContainsKey((trim, g))) {
-        var revKey = (new string(trim.Reverse().ToArray()), g.Reverse().ToArray());
-        if(cache.ContainsKey(revKey)) {
-            cache[(trim, g)] = cache[revKey];
-        }
-        else {
-            cache[(trim, g)] = Calculate(trim, g);
-        }
+    var key = GetKey(i, g);
+
+    if(!cache.ContainsKey(key)) {
+        cache[key] = Calculate(trim, g);
+        var revKey = GetKey(new string(trim.Reverse().ToArray()), g.Reverse().ToArray());
+        cache[revKey] = cache[key];
     }
 
-    return cache[(trim, g)];
+    return cache[key];
 
-    int Calculate(string field, int[] groups) {
+    string GetKey(string i, int[] g) {
+        return i + string.Join(",",g);
+    }
+
+    long Calculate(string field, int[] groups) {
         if(groups.Sum() > field.Count(x => x != '.')) {
             return 0;
         }
