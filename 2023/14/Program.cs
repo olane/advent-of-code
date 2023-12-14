@@ -25,8 +25,8 @@ for (long i = 0; i < 1000000000; i++)
         {
             // we found a loop. fake iterate as far as possible.
             var period = j;
-            var maxSkips = (1000000000 - i) / j;
-            i += maxSkips * j;
+            var maxSkips = (1000000000 - i) / period;
+            i += maxSkips * period;
             // we can stop, it's stable
             continue;
         }
@@ -78,9 +78,6 @@ IEnumerable<(int x, int y)> RollAll((int x, int y)[] cubes, IEnumerable<(int x, 
 }
 
 (int x, int y) RollNorth((int x, int y) rock, IEnumerable<(int x, int y)> rocks, IEnumerable<(int x, int y)> cubes) {
-    // var relevantRocks = rocks.Where(r => r.x == rock.x && r.y < rock.y).Select(r => r.y);
-    // var relevantCubes = cubes.Where(c => c.x == rock.x && c.y < rock.y).Select(c => c.y);
-    // var nextObstacleY = Math.Max(relevantRocks.Max(), relevantCubes.Max());
     var columnObstacles = rocks.Where(r => r.x == rock.x).Concat(cubes.Where(c => c.x == rock.x)).Concat([(rock.x, y:-1)]);
     var nextObstacleY = columnObstacles.Where(o => o.y < rock.y).MaxBy(o => o.y).y;
     return (rock.x, nextObstacleY + 1);
