@@ -20,31 +20,17 @@ Console.WriteLine(boxSums.Sum());
 void Execute(string instruction, Box[] boxes) {
     var split = instruction.Split('=', '-');
     var label = split[0];
+    
+    var boxNumber = Hash(label);
+    var box = boxes[boxNumber];
 
     if(instruction.Contains('=')){
-        Insert(boxes, label, int.Parse(split[1]));
+        boxes[boxNumber] = box.With(label, int.Parse(split[1]));
     }
     else {
-        Remove(boxes, label);
+        boxes[boxNumber] = box.Without(label);
     }
 }
-
-void Insert(Box[] boxes, string label, int focalLength)
-{
-    var boxNumber = Hash(label);
-    var box = boxes[boxNumber];
-
-    boxes[boxNumber] = box.With(label, focalLength);
-}
-
-void Remove(Box[] boxes, string label)
-{
-    var boxNumber = Hash(label);
-    var box = boxes[boxNumber];
-
-    boxes[boxNumber] = box.Without(label);
-}
-
 
 int Hash(string str)
 {
