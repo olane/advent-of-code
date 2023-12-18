@@ -1,24 +1,49 @@
 ﻿
-var lines = File.ReadAllLines("input.txt");
+var lines = File.ReadAllLines("example.txt");
 
 var field = new Field(lines);
 
 field.Print();
 
-var paths = GetPaths(new Location(field.Width-1, field.Height-1), field, new Path([new(new Location(0, 0), Direction.Right)]));
+var paths = GetPaths(new Location(0, 0), new Location(field.Width-1, field.Height-1), field);
 var pathCosts = paths.Select(p => Cost(p, field));
 
 Console.WriteLine(pathCosts.Max());
 
 int Cost(Path p, Field field) => p.Locations.Sum(l => field.Get(l.Location));
 
-IEnumerable<Path> GetPaths(Location end, Field field, Path pathSoFar)
+IEnumerable<Path> GetPaths(Location start, Location end, Field field)
 {
-    if(pathSoFar.Locations.Last().Location == end) {
-        return [pathSoFar];
+    var distances = new int[field.Width, field.Height];
+    var prevs = new Location[field.Width, field.Height];
+    for (int i = 0; i < field.Width; i++)
+    {
+        for (int j = 0; j < field.Height; j++)
+        { 
+            distances[i, j] = int.MaxValue;
+        }
+    }
+    
+    //var pathSoFar = new Path([]);
+
+    var current = start;
+    distances[current.X, current.Y] = 0;
+
+    while(true) {
+        var nexts = GetPossibleNextLocations(current, prevs, field);
+        foreach (var n in nexts)
+        {
+            // visit
+            var cost = distances[current.X, current.Y] + field.Get(n.Location);
+            if(cost < distances[n.Location.X, n.Location.Y]) {
+                distances[n.Location.X, n.Location.Y] = cost;
+            }
+            if(n.Location == end) {
+                return pathSoFar;
+            }
+        }
     }
 
-    var nexts = GetPossibleNextLocations(pathSoFar, field);
 
     var newPaths = nexts.Select(n => {
         var newPath = pathSoFar.Copy();
@@ -29,22 +54,34 @@ IEnumerable<Path> GetPaths(Location end, Field field, Path pathSoFar)
     return newPaths.SelectMany(p => GetPaths(end, field, pathSoFar));
 }
 
-IEnumerable<PathLocation> GetPossibleNextLocations(Path path, Field field)
+IEnumerable<PathLocation> GetPossibleNextLocations(PathLocation current, PathLocation[,] prevs, Field field)
 {
     var possibleNexts = new List<PathLocation>();
 
-    var lastLoc = path.Locations.Last();
-    var last3Dirs = path.Locations.Skip(Math.Max(0, path.Locations.Count - 3)).Select(l => l.Dir);
+    var last3Dirs = GetLastNLocations(prevs, current, 3).Select(x => x.Location);
     if(!last3Dirs.All(d => d == last3Dirs.First())) {
         // we've not gone the same way 3 times in a row, so we can go straight on
-        possibleNexts.Add(Go(lastLoc, lastLoc.Dir));
+        possibleNexts.Add(Go(current, current.Dir));
     }
-    possibleNexts.Add(TurnLeft(lastLoc));
-    possibleNexts.Add(TurnRight(lastLoc));
+    possibleNexts.Add(TurnLeft(current));
+    possibleNexts.Add(TurnRight(current));
 
     return possibleNexts
-        .Where(l => l.Location.X >= 0 && l.Location.Y >= 0 && l.Location.X < field.Width && l.Location.Y < field.Height)
-        .Where(l => !path.Locations.Any(pl => pl.Location == l.Location));
+        .Where(l => l.Location.X >= 0 && l.Location.Y >= 0 && l.Location.X < field.Width && l.Location.Y < field.Height);
+       // .Where(l => !path.Locations.Any(pl => pl.Location == l.Location));
+}
+
+IEnumerable<PathLocation> GetLastNLocations(PathLocation?[,] prevs, PathLocation current, int n)
+{
+    PathLocation? l = current;
+    for (int i = 0; i < n; i++)
+    {
+        if(l != null) {
+            break;
+        }
+        yield return l;
+        l = prevs[l.Location.X, l.Location.Y];
+    }
 }
 
 PathLocation Go(PathLocation lastLoc, Direction dir)
