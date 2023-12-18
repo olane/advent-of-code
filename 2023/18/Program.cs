@@ -1,5 +1,4 @@
 ﻿
-using System.Globalization;
 
 var input = File.ReadAllLines("example.txt");
 
@@ -13,8 +12,9 @@ Console.WriteLine(CountSize(lines));
 
 var lines2 = input.Select(i =>
 {
-    var distanceStr = i.Substring(6, 5);
-    var dirStr = i.Substring(11, 1);
+    var hexIndex = i.IndexOf("(") +1;
+    var distanceStr = i.Substring(hexIndex+1, 5);
+    var dirStr = i.Substring(hexIndex+6, 1);
     var dir = dirStr switch {
         "0" => Direction.R,
         "1" => Direction.D,
@@ -27,19 +27,40 @@ var lines2 = input.Select(i =>
 Console.WriteLine(CountSize(lines2));
 
 
-int CountSize(Line[] lines)
+long CountSize(Line[] lines)
 {
-    var lineSegments = WalkLines(lines).ToArray();
-    var minX = lineSegments.Select(s => s.start.x).Min();
-    var minY = lineSegments.Select(s => s.start.y).Min();
-    var maxX = lineSegments.Select(s => s.start.x).Max();
-    var maxY = lineSegments.Select(s => s.start.y).Max();
+    var segments = WalkLines(lines).ToArray();
+    var minX = segments.Select(s => s.start.x).Min();
+    var minY = segments.Select(s => s.start.y).Min();
+    var maxX = segments.Select(s => s.start.x).Max();
+    var maxY = segments.Select(s => s.start.y).Max();
 
-    var (painted, width, height, xOffset, yOffset) = Paint(lineSegments);
+    var verticalSegments = segments.Where(s => s.start.x == s.end.x).ToArray();
 
-    Flood(painted, (xOffset + 1, yOffset + 1), width, height, '#');
+    long count = 0;
+    for (int y = minY; y <= maxY; y++)
+    {
+        var relevantSegments = verticalSegments.Where(s => (s.start.y >= y && s.end.y <= y) || s.start.y <= y && s.end.y >= y).ToArray();
 
-    return Count(painted, width, height, '#');
+        var ordered = relevantSegments.OrderBy(s => s.start.x).ToArray();
+
+        for (int i = 0; i < ordered.Length -1; i+=2)
+        {
+            var first = ordered[i];
+            var second = ordered[i+1];
+
+            if(first.start.y == second.start.y || first.start.y == second.end.y || first.end.y == second.start.y || first.end.y == second.end.y) {
+                // we are going along a horizontal, eat one "for free"
+                //count += second.start.x - first.start.x - 1;
+                i--;
+            }
+            else {
+                count += second.start.x - first.start.x - 1;
+            }
+        }
+    }
+
+    return count + segments.Select(s => s.Length() - 1).Sum();
 }
 
 int Count(char[,] arr, int width, int height, char c)
@@ -200,7 +221,14 @@ static void Print(char[,] arr, int width, int height)
     }
 }
 
-record Segment(Point start, Point end);
+record Segment(Point start, Point end) {
+    public int Length() {
+        if(start.x == end.x) {
+            return Math.Abs(start.y - end.y);
+        }
+        else return Math.Abs(start.x - end.x);
+    }
+};
 
 record Point(int x, int y)
 {
