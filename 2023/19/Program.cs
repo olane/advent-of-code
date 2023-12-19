@@ -7,30 +7,24 @@ var items = itemLines.Select(PartFromString);
 
 var workflows = WorkflowSet.FromLines(workflowLines);
 
-
 var acceptedItems = items.Where(workflows.IsAcceptable);
 Console.WriteLine(acceptedItems.Sum(i => i.Value()));
 
-var allItems = GenerateItems();
-Console.WriteLine(allItems.LongCount(workflows.IsAcceptable));
+var partRange = new PartRange(
+    makeRange(4000, true),
+    makeRange(4000, true),
+    makeRange(4000, true),
+    makeRange(4000, true)
+);
 
-IEnumerable<Part> GenerateItems()
-{
-    for (int i = 0; i < 4000; i++)
-    {
-        for (int j = 0; j < 4000; j++)
-        {
-            for (int k = 0; k < 4000; k++)
-            {
-                for (int l = 0; l < 4000; l++)
-                {
-                    yield return new Part(i, j, k, l);
-                }
-            }
-            Console.Write(".");
-        }
-        Console.WriteLine("###");
-    }
+var filteredPartRange = workflows.ProcessRange(partRange);
+Console.WriteLine(filteredPartRange.Sum(x => x.Value()));
+
+bool[] makeRange(int n, bool def) {
+    var range = new bool[n+1];
+    Array.Fill(range, def);
+    range[0] = false;
+    return range;
 }
 
 Part PartFromString(string str) {
@@ -48,6 +42,73 @@ record Part(int x, int m, int a, int s)
     internal int Value()
     {
         return x + m + a + s;
+    }
+}
+
+record PartRange(bool[] x, bool[] m, bool[] a, bool[] s){
+    internal long Value()
+    {
+        return (long)x.Count(v => v) * m.Count(v => v) * a.Count(v => v) * s.Count(v => v);
+    }
+
+    internal PartRange FilterX(Func<int, bool> comparer)
+    {
+        return new PartRange(
+            x.Select((v, i) => v && comparer(i)).ToArray(),
+            m,
+            a,
+            s
+        );
+    }
+    
+    internal PartRange FilterM(Func<int, bool> comparer)
+    {
+        return new PartRange(
+            x,
+            m.Select((v, i) => v && comparer(i)).ToArray(),
+            a,
+            s
+        );
+    }
+    
+    internal PartRange FilterA(Func<int, bool> comparer)
+    {
+        return new PartRange(
+            x,
+            m,
+            a.Select((v, i) => v && comparer(i)).ToArray(),
+            s
+        );
+    }
+    
+    internal PartRange FilterS(Func<int, bool> comparer)
+    {
+        return new PartRange(
+            x,
+            m,
+            a,
+            s.Select((v, i) => v && comparer(i)).ToArray()
+        );
+    }
+
+    internal bool Exists()
+    {
+        return x.Any(v => v) && m.Any(v => v) && a.Any(v => v) && s.Any(v => v);
+    }
+
+    internal PartRange Invert()
+    {
+        return new PartRange(
+            x.Select((v, i) => i != 0 && !v).ToArray(),
+            m.Select((v, i) => i != 0 && !v).ToArray(),
+            a.Select((v, i) => i != 0 && !v).ToArray(),
+            s.Select((v, i) => i != 0 && !v).ToArray()
+        );
+    }
+
+    internal PartRange Intersect(PartRange partRange)
+    {
+        throw new NotImplementedException();
     }
 }
 
@@ -80,6 +141,37 @@ internal class WorkflowSet
                 return true;
             }
         }
+    }
+
+    internal IEnumerable<PartRange> ProcessRange(PartRange partRange)
+    {
+        var currentRangesAndRules = new (PartRange r, string nextRule)[] {(partRange, "in")};
+
+        while(true) {
+            currentRangesAndRules = currentRangesAndRules.SelectMany(rnr => {
+                if(rnr.nextRule == "A") {
+                    return new []{rnr};
+                } else if (rnr.nextRule == "R") {
+                    return Array.Empty<(PartRange r, string nextRule)>();
+                }
+
+                return Workflows[rnr.nextRule].Apply(rnr.r);
+            }).ToArray();
+
+            if(currentRangesAndRules.All(rnr => rnr.nextRule == "A")) {
+                return currentRangesAndRules.Where(rnr => rnr.nextRule == "A").Select(rnr => rnr.r);
+            }
+        }
+    }
+
+    private PartRange Combine(IEnumerable<PartRange> ranges)
+    {
+        return new PartRange(
+            Enumerable.Range(0, 4000).Select(i => ranges.Any(r => r.x[i])).ToArray(),
+            Enumerable.Range(0, 4000).Select(i => ranges.Any(r => r.m[i])).ToArray(),
+            Enumerable.Range(0, 4000).Select(i => ranges.Any(r => r.a[i])).ToArray(),
+            Enumerable.Range(0, 4000).Select(i => ranges.Any(r => r.s[i])).ToArray()
+        );
     }
 }
 
@@ -118,6 +210,22 @@ internal class Workflow
 
         return Fallback;
     }
+    
+    internal IEnumerable<(PartRange r, string nextRule)> Apply(PartRange partRange)
+    {
+        var currentRange = partRange;
+        foreach(var rule in Rules) {
+            var positiveRange = rule.Apply(currentRange);
+            if(positiveRange.Exists()) {
+                yield return (positiveRange, rule.positiveResult);
+            }
+            currentRange = rule.ApplyInverse(currentRange);
+        }
+
+        if(currentRange.Exists()) {
+            yield return (currentRange, Fallback);
+        }
+    }
 }
 
 record Rule(char attribute, char comparison, int comparisonValue, string positiveResult)
@@ -138,6 +246,44 @@ record Rule(char attribute, char comparison, int comparisonValue, string positiv
             '<' => value < comparisonValue,
             '>' => value > comparisonValue,
             _ => throw new NotImplementedException()
+        };
+    }
+
+    internal PartRange Apply(PartRange partRange)
+    {
+        Func<int, bool> comparer = comparison switch
+        {
+            '<' => v => v < comparisonValue,
+            '>' => v => v > comparisonValue,
+            _ => throw new NotImplementedException()
+        };
+
+        return attribute switch
+        {
+            'x' => partRange.FilterX(comparer),
+            'm' => partRange.FilterM(comparer),
+            'a' => partRange.FilterA(comparer),
+            's' => partRange.FilterS(comparer),
+            _ => throw new NotImplementedException(),
+        };
+    }
+
+    internal PartRange ApplyInverse(PartRange partRange)
+    {
+        Func<int, bool> comparer = comparison switch
+        {
+            '<' => v => v >= comparisonValue,
+            '>' => v => v <= comparisonValue,
+            _ => throw new NotImplementedException()
+        };
+
+        return attribute switch
+        {
+            'x' => partRange.FilterX(comparer),
+            'm' => partRange.FilterM(comparer),
+            'a' => partRange.FilterA(comparer),
+            's' => partRange.FilterS(comparer),
+            _ => throw new NotImplementedException(),
         };
     }
 }
