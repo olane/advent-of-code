@@ -5,86 +5,65 @@ var field = new Field(lines);
 
 field.Print();
 
-var paths = GetPaths(new Location(0, 0), new Location(field.Width-1, field.Height-1), field);
-var pathCosts = paths.Select(p => Cost(p, field));
+var cost = FindMinimalPath(new PathLocation(new (0, 0), Direction.Down), new Location(field.Width-1, field.Height-1), field);
+Console.WriteLine(cost);
 
-Console.WriteLine(pathCosts.Max());
-
-int Cost(Path p, Field field) => p.Locations.Sum(l => field.Get(l.Location));
-
-IEnumerable<Path> GetPaths(Location start, Location end, Field field)
-{
+int FindMinimalPath(PathLocation start, Location end, Field field) {
     var distances = new int[field.Width, field.Height];
-    var prevs = new Location[field.Width, field.Height];
+    var visited = new bool[field.Width, field.Height];
     for (int i = 0; i < field.Width; i++)
     {
         for (int j = 0; j < field.Height; j++)
         { 
             distances[i, j] = int.MaxValue;
+            visited[i, j] = false;
         }
     }
-    
-    //var pathSoFar = new Path([]);
 
-    var current = start;
-    distances[current.X, current.Y] = 0;
+    var queue = new PriorityQueue<PathLocation, int>();
+    queue.Enqueue(start, 0);
 
-    while(true) {
-        var nexts = GetPossibleNextLocations(current, prevs, field);
+    distances[start.Location.X, start.Location.Y] = 0;
+
+    while(queue.Count > 0) {
+        var current = queue.Dequeue();
+        
+        if(current.Location == end) {
+            Print(distances, field.Width, field.Height);
+            return distances[current.Location.X, current.Location.Y];
+        }
+
+        var nexts = GetPossibleNextLocations(current, field);
         foreach (var n in nexts)
         {
+            // if (visited[n.pl.Location.X, n.pl.Location.Y]) {
+            //     continue;
+            // }
+
             // visit
-            var cost = distances[current.X, current.Y] + field.Get(n.Location);
-            if(cost < distances[n.Location.X, n.Location.Y]) {
-                distances[n.Location.X, n.Location.Y] = cost;
-            }
-            if(n.Location == end) {
-                return pathSoFar;
+            visited[n.pl.Location.X, n.pl.Location.Y] = true;
+            var cost = distances[current.Location.X, current.Location.Y] + n.cost;
+
+            if(cost < distances[n.pl.Location.X, n.pl.Location.Y]) {
+                distances[n.pl.Location.X, n.pl.Location.Y] = cost;
+                queue.Enqueue(n.pl, cost);
             }
         }
     }
 
-
-    var newPaths = nexts.Select(n => {
-        var newPath = pathSoFar.Copy();
-        newPath.Locations.Add(n);
-        return newPath;
-    });
-
-    return newPaths.SelectMany(p => GetPaths(end, field, pathSoFar));
+    return -1;
 }
 
-IEnumerable<PathLocation> GetPossibleNextLocations(PathLocation current, PathLocation[,] prevs, Field field)
+
+IEnumerable<(PathLocation pl, int cost)> GetPossibleNextLocations(PathLocation current, Field field)
 {
-    var possibleNexts = new List<PathLocation>();
+    var left = TurnLeft(current.Dir);
+    var right = TurnRight(current.Dir);
 
-    var last3Dirs = GetLastNLocations(prevs, current, 3).Select(x => x.Location);
-    if(!last3Dirs.All(d => d == last3Dirs.First())) {
-        // we've not gone the same way 3 times in a row, so we can go straight on
-        possibleNexts.Add(Go(current, current.Dir));
-    }
-    possibleNexts.Add(TurnLeft(current));
-    possibleNexts.Add(TurnRight(current));
-
-    return possibleNexts
-        .Where(l => l.Location.X >= 0 && l.Location.Y >= 0 && l.Location.X < field.Width && l.Location.Y < field.Height);
-       // .Where(l => !path.Locations.Any(pl => pl.Location == l.Location));
+    return Go(current, left, 3, field).Concat(Go(current, right, 3, field));
 }
 
-IEnumerable<PathLocation> GetLastNLocations(PathLocation?[,] prevs, PathLocation current, int n)
-{
-    PathLocation? l = current;
-    for (int i = 0; i < n; i++)
-    {
-        if(l != null) {
-            break;
-        }
-        yield return l;
-        l = prevs[l.Location.X, l.Location.Y];
-    }
-}
-
-PathLocation Go(PathLocation lastLoc, Direction dir)
+PathLocation Go1(PathLocation lastLoc, Direction dir)
 {
     return dir switch
     {
@@ -95,22 +74,53 @@ PathLocation Go(PathLocation lastLoc, Direction dir)
     };
 }
 
-PathLocation TurnLeft(PathLocation lastLoc) {
-    return lastLoc.Dir switch {
-        Direction.Up => Go(lastLoc, Direction.Left),
-        Direction.Down => Go(lastLoc, Direction.Right),
-        Direction.Left => Go(lastLoc, Direction.Down),
-        Direction.Right => Go(lastLoc, Direction.Up),
+
+IEnumerable<(PathLocation pl, int cost)> Go(PathLocation lastLoc, Direction dir, int n, Field field)
+{
+    var cost = 0;
+    var pl = lastLoc;
+    for (int i = 0; i < n; i++)
+    {
+        pl = Go1(pl, dir);
+        if(pl.Location.X >= 0 && pl.Location.Y >= 0 && pl.Location.X < field.Width && pl.Location.Y < field.Height) {
+            cost += field.Get(pl.Location);
+            yield return(pl, cost);
+        }
+        else {
+            break;
+        }
+    }
+}
+
+Direction TurnLeft(Direction dir) {
+    return dir switch {
+        Direction.Up => Direction.Left,
+        Direction.Down => Direction.Right,
+        Direction.Left => Direction.Down,
+        Direction.Right => Direction.Up,
     };
 }
 
-PathLocation TurnRight(PathLocation lastLoc) {
-    return lastLoc.Dir switch {
-        Direction.Up => Go(lastLoc, Direction.Right),
-        Direction.Down => Go(lastLoc, Direction.Left),
-        Direction.Left => Go(lastLoc, Direction.Up),
-        Direction.Right => Go(lastLoc, Direction.Down),
+Direction TurnRight(Direction dir) {
+    return dir switch {
+        Direction.Up => Direction.Right,
+        Direction.Down => Direction.Left,
+        Direction.Left => Direction.Up,
+        Direction.Right => Direction.Down,
     };
+}
+
+
+ void Print(int[,] arr, int Width, int Height) {
+    for (int y = 0; y < Height; y++)
+    {
+        var line = "";
+        for (int x = 0; x < Width; x++)
+        {
+            line += arr[x,y].ToString().PadLeft(6);
+        }
+        Console.WriteLine(line);
+    }
 }
 
 record Path(List<PathLocation> Locations){
