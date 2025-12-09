@@ -28,6 +28,7 @@ defmodule Grid do
   end
 
   def neighbours(grid, pos) do
-    Map.filter(grid, fn {key, _} -> is_neighbour(key, pos) end)
+    Map.new(neighbour_positions(pos), fn p -> {p, grid[p]} end)
+    |> Map.filter(fn {_, v} -> !is_nil(v) end)
   end
 end
