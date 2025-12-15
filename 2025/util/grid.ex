@@ -31,4 +31,40 @@ defmodule Grid do
     Map.new(neighbour_positions(pos), fn p -> {p, grid[p]} end)
     |> Map.filter(fn {_, v} -> !is_nil(v) end)
   end
+
+  def get_pos_of(grid, char) do
+    {pos, _} =
+      grid
+      |> Map.filter(fn {_, v} -> v == char end)
+      |> Map.to_list()
+      |> hd()
+
+    pos
+  end
+
+  defp add_vectors({ax, ay}, {bx, by}) do
+    {ax + bx, ay + by}
+  end
+
+  # creates an infinite stream of positions in the direction of the
+  # vector starting from the start_pos (but not including it)
+  defp position_stream(start_pos, vector) do
+    Stream.unfold(add_vectors(start_pos, vector), fn
+      pos -> {pos, add_vectors(pos, vector)}
+    end)
+  end
+
+  # starts from start_pos, iterates in direction of vector, and
+  # returns the first {position} that matches char.
+  # returns {pos, :notfound} if we go out of bounds.
+  def next_on_vector(grid, char, start_pos, vector) do
+    position_stream(start_pos, vector)
+    |> Enum.find_value(fn pos ->
+      case grid[pos] do
+        x when x == char -> pos
+        nil -> {pos, :notfound}
+        _ -> false
+      end
+    end)
+  end
 end
